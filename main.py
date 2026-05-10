@@ -1,4 +1,4 @@
-from lib.clients.news_api import get_news
+# from clients.news_api import get_news
 
-r = get_news()
-print(r.content)
+if __name__ == "__main__":
+    pass

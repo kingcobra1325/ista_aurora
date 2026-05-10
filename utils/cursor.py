@@ -3,32 +3,39 @@ from datetime import datetime, timedelta, timezone
 
 
 class Cursor:
-    """
-    Stores and manages the last processed 'to' timestamp
-    for NewsAPI incremental ingestion.
-    """
-
     def __init__(self, file_path: str = "cursor.txt"):
         self.file_path = file_path
-        self._ensure_file_exists()
+        self._ensure_file()
 
-    def _ensure_file_exists(self):
+        self._current_from = None
+        self._current_to = None
+
+    def _ensure_file(self):
         if not os.path.exists(self.file_path):
             with open(self.file_path, "w") as f:
-                f.write("1970-01-01T00:00:00Z")
+                f.write("2026-04-10T00:00:00Z")
 
-    def get_last_to(self) -> datetime:
+    def _read_last_to(self) -> datetime:
         with open(self.file_path, "r") as f:
             raw = f.read().strip()
 
         return datetime.fromisoformat(raw.replace("Z", "")).replace(tzinfo=timezone.utc)
 
-    def get_from(self) -> datetime:
-        return self.get_last_to() + timedelta(seconds=1)
+    def open_window(self):
+        self._current_from = self._read_last_to() + timedelta(seconds=1)
+        self._current_to = datetime.now(timezone.utc)
 
-    def update_to(self, new_to: datetime):
-        # Always store in UTC ISO format
+        return self._current_from, self._current_to
+
+    def commit(self, new_to: datetime):
         normalized = new_to.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
         with open(self.file_path, "w") as f:
             f.write(normalized)
+
+        self._current_from = None
+        self._current_to = None
+
+    # optional: debug
+    def current_window(self):
+        return self._current_from, self._current_to

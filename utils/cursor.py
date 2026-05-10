@@ -1,41 +1,33 @@
-import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
+import redis
+import settings
 
 
-class Cursor:
-    def __init__(self, file_path: str = "cursor.txt"):
-        self.file_path = file_path
-        self._ensure_file()
-
-        self._current_from = None
-        self._current_to = None
-
-    def _ensure_file(self):
-        if not os.path.exists(self.file_path):
-            with open(self.file_path, "w") as f:
-                f.write("2026-04-10T00:00:00Z")
-
-    def _read_last_to(self) -> datetime:
-        with open(self.file_path, "r") as f:
-            raw = f.read().strip()
-
-        return datetime.fromisoformat(raw.replace("Z", "")).replace(tzinfo=timezone.utc)
+class RedisCursor:
+    def __init__(self, key: str = "news_cursor"):
+        self.key = key
+        self.r = redis.Redis(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            decode_responses=True,
+        )
 
     def open_window(self):
-        self._current_from = self._read_last_to() + timedelta(seconds=1)
-        self._current_to = datetime.now(timezone.utc)
+        last_to = self.r.get(self.key)
 
-        return self._current_from, self._current_to
+        if last_to is None:
+            last_dt = datetime(2026, 4, 10, tzinfo=timezone.utc)
+        else:
+            last_dt = datetime.fromisoformat(last_to.replace("Z", "")).replace(
+                tzinfo=timezone.utc
+            )
+
+        current_from = last_dt + timedelta(seconds=1)
+        current_to = datetime.now(timezone.utc)
+
+        return current_from, current_to
 
     def commit(self, new_to: datetime):
         normalized = new_to.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
-        with open(self.file_path, "w") as f:
-            f.write(normalized)
-
-        self._current_from = None
-        self._current_to = None
-
-    # optional: debug
-    def current_window(self):
-        return self._current_from, self._current_to
+        self.r.set(self.key, normalized)

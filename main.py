@@ -3,12 +3,12 @@ from datetime import datetime, timezone
 
 from clients.news_api import get_news
 from clients.kinesis import ingest
-from utils.cursor import Cursor
+from utils.cursor import RedisCursor
 from utils.processor import transform
 
 
 def run():
-    cursor = Cursor("cursor.txt")
+    cursor = RedisCursor()
 
     while True:
         try:

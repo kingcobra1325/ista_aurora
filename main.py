@@ -27,7 +27,7 @@ def run():
 
             for article in articles:
                 record = transform(article)
-                batch.append(record)
+                batch.append(record.model_dump(mode="json"))
 
                 published = datetime.fromisoformat(
                     article["publishedAt"].replace("Z", "")
